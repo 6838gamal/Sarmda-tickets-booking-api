@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>طلب الفراغة - مديرية سرمدا</title>
+
+  
+  <link rel="stylesheet" href="https://import-dep.mega-sy.com/assets/css/app.css?v=1758806868">
+
+  
+  
+  
+  <meta name="app:min-seconds" content="8">
+  <meta name="app:form-started-at" content="1766399720218">
+  <meta name="app:orders-snapshot" content="https://import-dep.mega-sy.com/orders/snapshot">
+
+  
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  </head>
+<body class="page">
+
+
+
+<!-- حارس وتوست -->
+<div id="guard-overlay" class="guard" aria-hidden="true"></div>
+<div id="toast-root" class="toast-root"></div>
+
+<main class="container">
+  <!-- الهيدر -->
+  <header class="card header mb-24">
+    <div class="header-inner">
+      <img src="https://import-dep.mega-sy.com/images/syria-new-logo.png" alt="شعار سوريا" class="logo" loading="lazy"/>
+      <h1 class="title">
+        <span class="block">نقل ملكية للإدخال المؤقت حصراً(الفراغة)</span>
+        <span class="subtitle block">مديرية سرمدا</span>
+      </h1>
+    </div>
+  </header>
+
+  <!-- لوحة الحالة -->
+  <section class="card panel">
+    <div class="status-row">
+      <div class="status-left">
+        <span id="openDot" class="dot dot-closed"></span>
+        <span id="openText" class="status-text">
+          التسجيل غير متاح الآن
+        </span>
+      </div>
+      <div class="status-right">
+                  الوقت المتاح اليوم:
+          <span id="timeRange" class="highlight">18:00 – 23:59</span>
+                      <span class="muted small">&nbsp;&nbsp;(الدوام غداً: 09:15 – 15:30)</span>
+                                </div>
+    </div>
+
+    <div id="nextMsgWrap" class="notice ">
+      <span id="nextMsg">أقرب موعد: الإثنين 2025-12-22 عند 18:00</span>
+    </div>
+
+    <div class="grid-2">
+      <div class="stat stat-yellow">
+        <div class="stat-title">المتبقي لك اليوم</div>
+        <div id="remainingUser" class="stat-value">1</div>
+        <div class="stat-note">حسب حد المستخدم اليومي</div>
+      </div>
+
+      <div class="stat stat-yellow">
+        <div class="stat-title">المتبقي للنظام اليوم</div>
+        <div id="remainingSystem" class="stat-value">138</div>
+        <div class="stat-note">من أصل <span class="bold">138</span> طلب يومي</div>
+      </div>
+    </div>
+
+    <!-- الأيام -->
+    <div class="days">
+      <div class="hr-with-text"><span>الأيام المسموحة للتسجيل</span></div>
+
+              <div class="days-grid">
+                                  <div class="day day-yes ">
+              <div class="day-row">
+                <span class="day-name">الأحد</span>
+                              </div>
+              <div class="day-time">18:00 – 23:59</div>
+            </div>
+                                  <div class="day day-yes day-today">
+              <div class="day-row">
+                <span class="day-name">الإثنين</span>
+                 <span class="chip">اليوم</span>               </div>
+              <div class="day-time">18:00 – 23:59</div>
+            </div>
+                                  <div class="day day-yes ">
+              <div class="day-row">
+                <span class="day-name">الثلاثاء</span>
+                              </div>
+              <div class="day-time">18:00 – 23:59</div>
+            </div>
+                                  <div class="day day-yes ">
+              <div class="day-row">
+                <span class="day-name">الأربعاء</span>
+                              </div>
+              <div class="day-time">18:00 – 23:59</div>
+            </div>
+                                  <div class="day day-no ">
+              <div class="day-row">
+                <span class="day-name">الخميس</span>
+                              </div>
+              <div class="day-time">غير متاح</div>
+            </div>
+                                  <div class="day day-yes ">
+              <div class="day-row">
+                <span class="day-name">الجمعة</span>
+                              </div>
+              <div class="day-time">18:00 – 23:59</div>
+            </div>
+                                  <div class="day day-yes ">
+              <div class="day-row">
+                <span class="day-name">السبت</span>
+                              </div>
+              <div class="day-time">18:00 – 23:59</div>
+            </div>
+                  </div>
+          </div>
+  </section>
+
+  <!-- رسائل السيرفر -->
+  
+  
+  
+  <!-- النموذج -->
+  <section class="card panel mt-16">
+    <form id="orderForm" action="https://import-dep.mega-sy.com/registration" method="POST" novalidate autocomplete="off">
+      <input type="hidden" name="_token" value="MdKSPhJMxlfdR4U9TX9MdXxmB39JrTEoFDscEAa0" autocomplete="off">
+      <!-- Honeypots -->
+      <div class="hp-wrap" aria-hidden="true">
+        <label>موقعك<input type="text" name="_hp" value="" tabindex="-1" autocomplete="off"></label>
+        <label>الموقع<input type="text" name="website" value="" tabindex="-1" autocomplete="off"></label>
+        <label>الشركة<input type="text" name="company" value="" tabindex="-1" autocomplete="off"></label>
+        <label>الموضوع
+          <select name="topic" tabindex="-1">
+            <option value="">اختيار</option>
+            <option value="1">استفسار</option>
+            <option value="2">شكوى</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- حِماية: HMAC + dwell -->
+      <input type="hidden" name="started_at" value="1766399720218">
+      <input type="hidden" name="hmac"       value="jqdXKly95ZQM_gAcPNQa8SFsKmpa8zZ1CS7nt0j4nJE">
+
+      <!-- الحقول -->
+      <fieldset id="formFields" disabled>
+        <div class="form-grid">
+          <div class="card-yellow box">
+            <label for="seller_name" class="label">اسم البائع</label>
+            <input id="seller_name" name="seller_name" type="text" maxlength="40"
+                   value="" inputmode="text" autocomplete="off"
+                   autocapitalize="off" spellcheck="false" class="input" required />
+            <p class="help">لا يزيد عن 40 حرفًا.</p>
+          </div>
+
+          <div class="card-yellow box">
+            <label for="buyer_name" class="label">اسم المشتري</label>
+            <input id="buyer_name" name="buyer_name" type="text" maxlength="40"
+                   value="" inputmode="text" autocomplete="off"
+                   autocapitalize="off" spellcheck="false" class="input" required />
+            <p class="help">لا يزيد عن 40 حرفًا.</p>
+          </div>
+
+          <div class="card-yellow box full">
+            <label for="plate_number" class="label">رقم اللوحة</label>
+            <input id="plate_number" name="plate_number" type="text"
+                   inputmode="numeric" pattern="[0-9]+"
+                   placeholder="أدخل رقم اللوحة بالأرقام الإنجليزية فقط (0–9)"
+                   value="" autocomplete="off" class="input" required />
+            <p class="help">يجب أن يحتوي على أرقام إنجليزية فقط.</p>
+          </div>
+        </div>
+      </fieldset>
+
+      
+              <div class="turnstile-wrap" aria-label="اختبار التحقق">
+          <div class="cf-turnstile"
+               data-sitekey="0x4AAAAAAB3gPXN7QYWkUay6"
+               data-callback="onTurnstileOK"
+               data-expired-callback="onTurnstileExp"
+               data-error-callback="onTurnstileErr">
+          </div>
+        </div>
+      
+      <button id="submitBtn" type="submit" class="btn btn-primary" disabled>
+        تسجيل الطلب
+      </button>
+
+      <p id="dwellNote" class="note"></p>
+
+              <p id="closedNote" class="note error">
+          لا يمكنك التسجيل الآن.
+                      أقرب موعد: الإثنين 2025-12-22 عند 18:00
+                  </p>
+          </form>
+  </section>
+
+  <!-- الفوتر -->
+  <footer class="footer">
+    <span class="block bold">وزارة النقل - مديرية المعلوماتية وأنظمة النقل الذكية</span>
+    <span class="muted">&copy; جميع الحقوق محفوظة</span>
+  </footer>
+</main>
+
+<!-- Modal تنبيه بعد النجاح -->
+<div id="success-notice-modal" class="modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" dir="rtl">
+    <h3 class="modal-title">تنبيه هام - يرجى أخذ لقطة شاشة</h3>
+
+    
+    <div id="appointment-summary" class="modal-section hidden">
+      <div class="hr-with-text"><span>موعدك</span></div>
+      <p id="appointment-info" class="bold"></p>
+    </div>
+
+    <div class="modal-body">
+      <p class="bold">يجب على الطرفين ما يلي لتفادي التأخير:</p>
+      <ul class="list">
+        <li>حضورهما شخصياً أو من ينوب عنهما سوياً مع إحضار الوكالة الأصلية + صورة عنها.</li>
+        <li>إحضار الهوية الشخصية الأصلية + صورة عنها.</li>
+      </ul>
+    </div>
+    <div class="modal-actions">
+      <button id="success-notice-ok" type="button" class="btn btn-secondary">موافق</button>
+    </div>
+  </div>
+</div>
+
+<div id="server-toast-data"
+     data-success=""
+     data-error=""
+     data-svc-start="09:15"
+     data-svc-end="15:30"
+     class="hidden"></div>
+
+<!-- JS ثابت من public -->
+<script src="https://import-dep.mega-sy.com/assets/js/order.js" defer></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b1ef8c82a65fa02',t:'MTc2NjM5OTcxOQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"255141a8c9d541cc99e5fb9e4f052358","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "XSRF-TOKEN",
+    "value": "eyJpdiI6Ik9NWDJSNFJEZE9iY3lnRUpZL3ZyRnc9PSIsInZhbHVlIjoidmtDdU9FZ0VhNFROcUh0NGQwbnZzWFNZQkJ2RHdtRUJ0L2N6ZjhuVXk2K01xOE1BL0JvQjVoTmkyTnRtUVkxRUtNQmJpaVdldUc5dkwyWG4xbWRsdEx3amM4ZDlEa3ozU2tqY0JIaGxweFRLcVllS1l5VEhJblBkMnBhMjB2RG8iLCJtYWMiOiJkODhiYjAwNmI0Y2EyZGI3YmEyYmU3MWVlN2U4MjBhYjIxOTA1ZTY0YjExNmM5YTEzNTA5ZTQ5NDg4MjA1NzM1IiwidGFnIjoiIn0%3D",
+    "domain": "import-dep.mega-sy.com",
+    "path": "/",
+    "expires": 1766383748.147289,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "remember_visitor_59ba36addc2b2f9401580f014c7f58ea4e30989d",
+    "value": "eyJpdiI6InowL1g3cS9LWUUrc1FRWnpxQytNYVE9PSIsInZhbHVlIjoiZk52eG5UWUFyZlNiVWlULzVPYnVmSm8rWTFCZ0F5WGJ0TDRsK3lTcGttWjBPYkU0QnpjV1dGRmhpR2tyS3doSXlyWk9ZQzl3Y3c5Rkh1TitHa1BNUzlib2NwZTN6dDV1K01TRlRNWC9EL2thcExTNXBkTHgxK2IwekZONUlFRUxwUHdIYm50NHEyKzRpQ2JGTndlb0xBPT0iLCJtYWMiOiI4ZDI3ZTVjZTc0Y2FmMWY2ODQzNmJiYzQ3ZmU2ZDQwZDhhOTJlNGRkY2I1YWNkYWM3NWE2OTQ3YWVjOGQ4MGFlIiwidGFnIjoiIn0%3D",
+    "domain": "import-dep.mega-sy.com",
+    "path": "/",
+    "expires": 1800940148.147802,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "vc_session",
+    "value": "eyJpdiI6ImRaRlUwdWE4dEQwNk1JZkhlNzM2UWc9PSIsInZhbHVlIjoiNkJmdkV5TDhYT0VudjhkUXRYZlg0QVluN2RsY2N0T3JRRmlyMkQ5SElHQTdzZDRaQSt5UlZRYUZhWWdXZ2dLajJTb3VCRXI3SUMzTHRWWTBFd1plb1VOOC91aTlqdVhMcHM2V2JXNWJ1aDZwZHBNaUdDUEgxb2pycWpUUEg4VmwiLCJtYWMiOiJkYTIyZGY1NTMxZmY3MDdlMzRjNTFkN2RlNGQ3MGJkOTUxY2M4MGRiMTBlYzQ3MjI3YzVjNzY5MDZiN2EzOGRiIiwidGFnIjoiIn0%3D",
+    "domain": "import-dep.mega-sy.com",
+    "path": "/",
+    "expires": 1766383748.690714,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  }
+]
