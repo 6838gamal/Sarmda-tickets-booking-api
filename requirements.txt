@@ -3,3 +3,4 @@ requests
 bs4
 typing
 pydantic
+python-multipart
