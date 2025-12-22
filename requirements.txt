@@ -1,0 +1,5 @@
+fastapi
+requests
+bs4
+typing
+pydantic
