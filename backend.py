@@ -5,6 +5,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 from pydantic import BaseModel
+import uvicorn
 
 app = FastAPI(title="Smart Session Watcher Web")
 
@@ -36,7 +37,7 @@ logs: List[str] = []
 def log(msg: str):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_message = f"[{ts}] {msg}"
-    logs.insert(0, log_message) # Add to the beginning of the list
+    logs.insert(0, log_message)
     print(log_message)
 
 def load_cookies(session):
@@ -47,7 +48,7 @@ def load_cookies(session):
     try:
         with open(COOKIES_FILE, "r", encoding="utf-8") as f:
             cookies = json.load(f)
-        
+
         session.cookies.clear()
         for c in cookies:
             session.cookies.set(
@@ -108,6 +109,7 @@ def is_logged_out(url: str):
 def monitor_task(form_data: Dict[str, Any]):
     session = requests.Session()
     session.headers.update(HEADERS)
+
     if not load_cookies(session):
         log("⛔ لا يمكن البدء بدون كوكيز")
         return
@@ -148,29 +150,26 @@ def home():
     return f"""
     <!DOCTYPE html>
     <html lang="ar" dir="rtl">
-        <head>
-            <meta charset="UTF-8">
-            <title>Smart Session Watcher</title>
-            <meta http-equiv="refresh" content="5">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; }}
-                h1, h2 {{ color: #333; }}
-                form {{ background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }}
-                button {{ background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; }}
-                button:hover {{ background-color: #0056b3; }}
-                pre {{ background:#f0f0f0; padding:10px; height:400px; overflow:auto; border: 1px solid #ccc; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;}}
-            </style>
-        </head>
-        <body>
-            <h1>🧠 Smart Session Watcher – Web</h1>
-            <form action="/upload_cookies" method="post" enctype="multipart/form-data">
-                <label for="file">تحديث ملف cookies.json:</label><br><br>
-                <input type="file" name="file" id="file"/>
-                <button type="submit">رفع الملف</button>
-            </form>
-            <h2>سجل الأحداث (يتم التحديث كل 5 ثواني):</h2>
-            <pre>{log_content}</pre>
-        </body>
+    <head>
+        <meta charset="UTF-8">
+        <title>Smart Session Watcher</title>
+        <meta http-equiv="refresh" content="5">
+        <style>
+            body {{ font-family: system-ui; padding: 20px; }}
+            form {{ background:#f9f9f9; padding:15px; border-radius:8px; }}
+            button {{ padding:10px 15px; }}
+            pre {{ background:#f0f0f0; padding:10px; height:400px; overflow:auto; }}
+        </style>
+    </head>
+    <body>
+        <h1>🧠 Smart Session Watcher</h1>
+        <form action="/upload_cookies" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" />
+            <button type="submit">رفع cookies.json</button>
+        </form>
+        <h2>السجل</h2>
+        <pre>{log_content}</pre>
+    </body>
     </html>
     """
 
@@ -186,10 +185,21 @@ async def upload_cookies(file: UploadFile = File(...)):
         log(f"❌ خطأ في رفع الكوكيز: {e}")
         return {"status": "error", "message": str(e)}
 
-
 @app.post("/start_monitor")
-def start_monitor_endpoint(reservation: ReservationData, background_tasks: BackgroundTasks):
+def start_monitor_endpoint(
+    reservation: ReservationData,
+    background_tasks: BackgroundTasks
+):
     form_data_dict = reservation.dict()
     background_tasks.add_task(monitor_task, form_data_dict)
-    log(f"🟢 تم جدولة المراقبة في الخلفية للبيانات: {form_data_dict}")
-    return {"status": "success", "message": "Monitoring task has been started in the background."}
+    log(f"🟢 تم تشغيل المراقبة في الخلفية: {form_data_dict}")
+    return {"status": "success"}
+
+# ---------------- تشغيل التطبيق ----------------
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",   # غيّر main إلى اسم الملف إن اختلف
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )
