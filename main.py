@@ -1,5 +1,5 @@
 from fastapi import FastAPI, BackgroundTasks, UploadFile, File
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 import requests, json, os, time
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -38,6 +38,8 @@ def log(msg: str):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_message = f"[{ts}] {msg}"
     logs.insert(0, log_message)
+    if len(logs) > 100: # Keep only the last 100 logs
+        logs.pop()
     print(log_message)
 
 def load_cookies(session):
@@ -193,7 +195,12 @@ def start_monitor_endpoint(
     form_data_dict = reservation.dict()
     background_tasks.add_task(monitor_task, form_data_dict)
     log(f"🟢 تم تشغيل المراقبة في الخلفية: {form_data_dict}")
-    return {"status": "success"}
+    return {"status": "success", "message": "Monitoring has started."}
+
+@app.get("/logs", response_class=JSONResponse)
+def get_logs():
+    """This endpoint provides the logs for the frontend to display."""
+    return {"logs": logs}
 
 # ---------------- تشغيل التطبيق ----------------
 if __name__ == "__main__":
