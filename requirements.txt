@@ -5,3 +5,8 @@ typing
 pydantic
 python-multipart
 uvicorn
+
+
+beautifulsoup4
+aiofiles
+sqlite3
