@@ -9,4 +9,4 @@ uvicorn
 
 beautifulsoup4
 aiofiles
-sqlite3
+#sqlite3
