@@ -10,3 +10,4 @@ uvicorn
 beautifulsoup4
 aiofiles
 #sqlite3
+Jinja2
