@@ -1,4 +1,4 @@
-# app.py - نظام مراقبة وإدارة الحجوزات (إصدار Web API معدل)
+# app.py - نظام مراقبة وإدارة الحجوزات (إصدار Web API معدل ومصحح)
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -248,20 +248,20 @@ class DatabaseManager:
         
         if row:
             return {
-                "id": r[0],
-                "reservation_id": r[1],
-                "seller_name": r[2],
-                "buyer_name": r[3],
-                "plate_number": r[4],
-                "priority": r[5],
-                "status": r[6],
-                "created_at": r[7],
-                "submitted_at": r[8],
-                "attempts": r[9],
-                "last_attempt": r[10],
-                "result": r[11],
-                "notes": r[12]
-            } for r in [row]  # تصحيح خطأ: كان return مباشر، الآن قائمة
+                "id": row[0],
+                "reservation_id": row[1],
+                "seller_name": row[2],
+                "buyer_name": row[3],
+                "plate_number": row[4],
+                "priority": row[5],
+                "status": row[6],
+                "created_at": row[7],
+                "submitted_at": row[8],
+                "attempts": row[9],
+                "last_attempt": row[10],
+                "result": row[11],
+                "notes": row[12]
+            }
         return None
     
     def get_pending_reservations(self, limit: int = 10):
