@@ -1,4 +1,4 @@
-# app.py - نظام مراقبة وإدارة الحجوزات مع تحسينات Cloudflare
+# app.py - نظام مراقبة وإدارة الحجوزات مع جميع الصفحات
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -112,7 +112,7 @@ class DatabaseManager:
         
         # الإعدادات الافتراضية
         default_settings = [
-            ('check_interval', '60'),  # زيادة الفترة لتجنب الحظر
+            ('check_interval', '60'),
             ('max_attempts', '3'),
             ('concurrent_submissions', '1'),
             ('target_url', 'https://import-dep.mega-sy.com/registration'),
@@ -314,7 +314,7 @@ class DatabaseManager:
             ''', (status, limit))
         else:
             cursor.execute('''
-            SELECT * FROM residences 
+            SELECT * FROM reservations 
             ORDER BY created_at DESC 
             LIMIT ?
             ''', (limit,))
@@ -493,7 +493,7 @@ class DatabaseManager:
         self.log(f"Cleaned old data: {checks_deleted} checks, {logs_deleted} logs", "INFO", "maintenance")
         return {"checks": checks_deleted, "logs": logs_deleted}
 
-# ==================== نواة النظام مع تحسينات Cloudflare ====================
+# ==================== نواة النظام ====================
 class SmartPlatformMonitor:
     def __init__(self, db: DatabaseManager):
         self.db = db
@@ -505,71 +505,40 @@ class SmartPlatformMonitor:
         self.last_request_time = 0
         self.current_status = None
         self.status_lock = threading.Lock()
-        self.proxies = self.load_proxies()
-        self.request_counter = 0
-        self.cf_retry_count = 0
-    
-    def load_proxies(self):
-        """تحميل قائمة البروكسيات"""
-        proxy_list = self.db.get_setting('proxy_list', '')
-        if proxy_list:
-            proxies = [p.strip() for p in proxy_list.split(',') if p.strip()]
-            self.db.log(f"Loaded {len(proxies)} proxies", "INFO", "proxy")
-            return proxies
-        return []
-    
-    def get_proxy(self):
-        """الحصول على بروكسي عشوائي"""
-        if self.proxies and self.db.get_setting('use_proxy', 'false').lower() == 'true':
-            return random.choice(self.proxies)
-        return None
     
     def setup_advanced_session(self):
-        """إعداد جلسة متقدمة مع headers مضادة لـ Cloudflare"""
+        """إعداد جلسة متقدمة"""
         self.session.headers.update({
             "User-Agent": self.get_random_user_agent(),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": "ar,en-US;q=0.9,en;q=0.8,fr;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "cross-site",
-            "Sec-Fetch-User": "?1",
+            "Sec-Fetch-Site": "none",
             "Cache-Control": "max-age=0",
             "DNT": "1",
-            "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"Windows"',
         })
     
     def get_random_user_agent(self):
-        """الحصول على User-Agent عشوائي حديث"""
+        """الحصول على User-Agent عشوائي"""
         user_agents = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0"
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
         ]
         return random.choice(user_agents)
     
     def respect_rate_limit(self):
-        """الاحترام rate limit مع تباين"""
+        """الاحترام rate limit"""
         current_time = time.time()
         
-        # زيادة الفترة بين الطلبات لتجنب Cloudflare
-        min_wait = 5 if self.cf_retry_count > 0 else 3
-        max_wait = 10 if self.cf_retry_count > 0 else 7
-        
-        if current_time - self.last_request_time < min_wait:
-            wait_time = random.uniform(min_wait, max_wait)
+        if current_time - self.last_request_time < 2:
+            wait_time = random.uniform(1, 3)
             time.sleep(wait_time)
         
         self.last_request_time = current_time
@@ -620,81 +589,28 @@ class SmartPlatformMonitor:
             )
             return False
     
-    def prepare_request_headers(self):
-        """تحضير headers للطلب مع تباين"""
-        headers = {
-            "User-Agent": self.get_random_user_agent(),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Cache-Control": "max-age=0",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "DNT": "1",
-        }
-        
-        # إضافة مرجع عشوائي
-        referers = [
-            "https://www.google.com/",
-            "https://www.bing.com/",
-            "https://www.yahoo.com/",
-            "https://duckduckgo.com/",
-            "https://www.facebook.com/",
-            f"https://{self.target_url.split('/')[2]}/",
-            "https://import-dep.mega-sy.com/"
-        ]
-        
-        headers["Referer"] = random.choice(referers)
-        
-        # إضافة headers إضافية بشكل عشوائي
-        if random.random() > 0.5:
-            headers["Sec-Ch-Ua"] = '"Google Chrome";v="121", "Not(A:Brand";v="8", "Chromium";v="121"'
-            headers["Sec-Ch-Ua-Mobile"] = "?0"
-            headers["Sec-Ch-Ua-Platform"] = '"Windows"'
-        
-        return headers
-    
     def perform_comprehensive_check(self, url: str = None):
-        """إجراء تحقق شامل مع تحسينات لـ Cloudflare"""
+        """إجراء تحقق شامل"""
         self.respect_rate_limit()
         
         target_url = url or self.target_url
         
         try:
             # تغيير User-Agent بشكل دوري
-            if random.random() < 0.5:
+            if random.random() < 0.3:
                 self.session.headers["User-Agent"] = self.get_random_user_agent()
             
-            # تحضير headers
-            headers = self.prepare_request_headers()
-            
-            # إعداد البروكسي إذا مفعل
-            proxies = None
-            proxy = self.get_proxy()
-            if proxy:
-                proxies = {
-                    'http': proxy,
-                    'https': proxy
-                }
-                self.db.log(f"Using proxy: {proxy}", "INFO", "proxy")
-            
-            # محاولة مع timeout متغير
-            timeout = random.randint(15, 25)
-            
-            # إضافة تأخير عشوائي قبل الطلب
-            pre_delay = random.uniform(1, 3)
-            time.sleep(pre_delay)
+            # إضافة headers إضافية
+            headers = {
+                "Referer": "https://import-dep.mega-sy.com/",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            }
             
             response = self.session.get(
                 target_url,
                 headers=headers,
-                timeout=timeout,
-                allow_redirects=True,
-                proxies=proxies
+                timeout=10,
+                allow_redirects=True
             )
             
             # تسجيل نتيجة الاتصال
@@ -706,7 +622,6 @@ class SmartPlatformMonitor:
                     f"كود الحالة: {response.status_code}",
                     response.status_code
                 )
-                self.cf_retry_count = 0  # إعادة تعيين عداد إعادة المحاولة
                 
                 # تحليل الصفحة
                 analysis = self.analyze_platform_page(response.text)
@@ -716,30 +631,15 @@ class SmartPlatformMonitor:
                 
                 return analysis
                 
-            elif response.status_code == 403 or response.status_code == 429:
-                # زيادة عداد إعادة المحاولة
-                self.cf_retry_count += 1
-                
-                # التحقق من محتوى الاستجابة
-                if "cloudflare" in response.text.lower() or "cf-" in response.text.lower():
-                    error_msg = f"Cloudflare WAF Blocked ({response.status_code}) - Retry #{self.cf_retry_count}"
-                else:
-                    error_msg = f"ممنوع الوصول ({response.status_code}) - Retry #{self.cf_retry_count}"
-                
+            elif response.status_code == 403:
                 self.db.save_check_result(
                     "connection",
                     "اتصال بالمنصة",
                     CheckStatus.FAIL,
-                    error_msg,
+                    f"ممنوع الوصول (403) - Cloudflare/WAF",
                     response.status_code
                 )
-                
-                # إذا كان هناك كتلة متكررة، حاول بطرق مختلفة
-                if self.cf_retry_count >= 3:
-                    self.db.log("Multiple Cloudflare blocks detected, trying alternative methods", "WARNING", "cloudflare")
-                    return self.try_alternative_methods(target_url)
-                
-                self.db.log(f"Cloudflare block #{self.cf_retry_count}", "WARNING", "cloudflare")
+                self.db.log("حظر الوصول 403 - تحتاج تحديث الكوكيز", "WARNING", "connection")
                 return None
                 
             else:
@@ -757,117 +657,20 @@ class SmartPlatformMonitor:
                 "connection",
                 "اتصال بالمنصة",
                 CheckStatus.FAIL,
-                f"انتهت مهلة الاتصال (Retry #{self.cf_retry_count})",
+                "انتهت مهلة الاتصال",
                 408
             )
             return None
             
-        except requests.RequestException as e:
-            self.db.save_check_result(
-                "connection",
-                "اتصال بالمنصة",
-                CheckStatus.FAIL,
-                f"خطأ في الطلب: {str(e)[:100]}",
-                500
-            )
-            return None
-            
         except Exception as e:
             self.db.save_check_result(
                 "connection",
                 "اتصال بالمنصة",
                 CheckStatus.FAIL,
-                str(e)[:200],
+                str(e),
                 500
             )
             return None
-    
-    def try_alternative_methods(self, url: str):
-        """محاولة طرق بديلة لتجاوز Cloudflare"""
-        methods = [
-            self.try_with_playwright,
-            self.try_with_different_session,
-            self.try_with_simple_requests
-        ]
-        
-        for method in methods:
-            try:
-                result = method(url)
-                if result:
-                    self.db.log(f"Alternative method {method.__name__} succeeded", "INFO", "cloudflare")
-                    return result
-            except Exception as e:
-                self.db.log(f"Alternative method {method.__name__} failed: {str(e)}", "WARNING", "cloudflare")
-                continue
-        
-        return None
-    
-    def try_with_different_session(self, url: str):
-        """محاولة بجلسة جديدة تماماً"""
-        try:
-            # إنشاء جلسة جديدة
-            new_session = requests.Session()
-            new_session.headers.update(self.prepare_request_headers())
-            
-            # تغيير User-Agent بشكل كامل
-            new_session.headers["User-Agent"] = self.get_random_user_agent()
-            
-            # إضافة تأخير طويل
-            time.sleep(random.uniform(5, 10))
-            
-            response = new_session.get(url, timeout=30, allow_redirects=True)
-            
-            if response.status_code == 200:
-                self.db.save_check_result(
-                    "connection",
-                    "جلسة بديلة",
-                    CheckStatus.PASS,
-                    "تم الاتصال باستخدام جلسة جديدة",
-                    response.status_code
-                )
-                return self.analyze_platform_page(response.text)
-            
-        except Exception as e:
-            self.db.log(f"New session failed: {str(e)}", "WARNING", "cloudflare")
-        
-        return None
-    
-    def try_with_simple_requests(self, url: str):
-        """محاولة مع طلب بسيط بدون جلسة"""
-        try:
-            # استخدام requests مباشرة بدون جلسة
-            headers = {
-                "User-Agent": self.get_random_user_agent(),
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "ar",
-                "Connection": "close",
-            }
-            
-            time.sleep(random.uniform(8, 15))
-            
-            response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
-            
-            if response.status_code == 200:
-                self.db.save_check_result(
-                    "connection",
-                    "طلب بسيط",
-                    CheckStatus.PASS,
-                    "تم الاتصال باستخدام طلب بسيط",
-                    response.status_code
-                )
-                return self.analyze_platform_page(response.text)
-            
-        except Exception as e:
-            self.db.log(f"Simple request failed: {str(e)}", "WARNING", "cloudflare")
-        
-        return None
-    
-    def try_with_playwright(self, url: str):
-        """محاولة باستخدام Playwright (متصفح حقيقي)"""
-        # هذه الطريقة تحتاج تثبيت playwright
-        # سنضعها كطريقة احتياطية يمكن تفعيلها لاحقاً
-        self.db.log("Playwright method not implemented, install playwright first", "INFO", "cloudflare")
-        return None
     
     def analyze_platform_page(self, html_content: str):
         """تحليل صفحة المنصة"""
@@ -882,8 +685,7 @@ class SmartPlatformMonitor:
                 "has_captcha": False,
                 "timestamp": datetime.now().isoformat(),
                 "cookies_valid": len(self.session.cookies) > 0,
-                "page_title": soup.title.string if soup.title else "Unknown",
-                "cf_protected": "cloudflare" in html_content.lower() or "cf-" in html_content.lower()
+                "page_title": soup.title.string if soup.title else "Unknown"
             }
             
             # التحقق من حالة النظام
@@ -896,11 +698,6 @@ class SmartPlatformMonitor:
                     CheckStatus.PASS if analysis["is_open"] else CheckStatus.WARNING,
                     "مفتوح" if analysis["is_open"] else "مغلق"
                 )
-            else:
-                # محاولة البحث بطرق أخرى
-                open_text = soup.find(string=lambda text: "مفتوح" in str(text).lower() if text else False)
-                if open_text:
-                    analysis["is_open"] = True
             
             # التحقق من النموذج
             fieldset = soup.find("fieldset", {"id": "formFields"})
@@ -917,29 +714,16 @@ class SmartPlatformMonitor:
             user_elem = soup.find("div", {"id": "remainingUser"})
             if user_elem:
                 try:
-                    analysis["remaining_user"] = int(''.join(filter(str.isdigit, user_elem.text.strip())))
+                    analysis["remaining_user"] = int(user_elem.text.strip())
                 except:
                     pass
             
             system_elem = soup.find("div", {"id": "remainingSystem"})
             if system_elem:
                 try:
-                    analysis["remaining_system"] = int(''.join(filter(str.isdigit, system_elem.text.strip())))
+                    analysis["remaining_system"] = int(system_elem.text.strip())
                 except:
                     pass
-            
-            # البحث عن الأعداد بطرق أخرى
-            if analysis["remaining_system"] == 0:
-                numbers = soup.find_all(string=lambda text: any(char.isdigit() for char in str(text)) if text else False)
-                for num in numbers[:10]:
-                    try:
-                        if "متبقي" in str(num) or "عدد" in str(num):
-                            digits = ''.join(filter(str.isdigit, str(num)))
-                            if digits:
-                                analysis["remaining_system"] = int(digits)
-                                break
-                    except:
-                        continue
             
             # التحقق من السعة
             if analysis["remaining_system"] > 0:
@@ -954,58 +738,38 @@ class SmartPlatformMonitor:
                     "capacity",
                     "سعة النظام",
                     CheckStatus.WARNING,
-                    "السعة منتهية أو غير محددة"
+                    "السعة منتهية"
                 )
             
             # التحقق من CAPTCHA
-            captcha_indicators = ["cf-turnstile", "recaptcha", "captcha", "تأكيد", "تحقق", "security check"]
-            for indicator in captcha_indicators:
-                if indicator in html_content.lower():
-                    analysis["has_captcha"] = True
-                    break
-            
-            if analysis["has_captcha"]:
+            if soup.find("div", {"class": "cf-turnstile"}):
+                analysis["has_captcha"] = True
                 self.db.save_check_result(
                     "security",
-                    "CAPTCHA Detection",
+                    "Cloudflare Turnstile",
                     CheckStatus.WARNING,
-                    "يحتاج حل تحقق أمني"
+                    "يحتاج حل CAPTCHA يدوي"
                 )
             
             # البحث عن التوكنات الأمنية
             form = soup.find("form", {"id": "orderForm"})
-            if not form:
-                form = soup.find("form")
-            
             if form:
                 tokens_found = 0
-                input_fields = form.find_all("input")
-                for inp in input_fields:
-                    name = inp.get("name", "").lower()
-                    if any(token in name for token in ["_token", "hmac", "started_at", "csrf", "nonce"]):
+                for token_name in ["_token", "hmac", "started_at"]:
+                    if form.find("input", {"name": token_name}):
                         tokens_found += 1
                 
                 self.db.save_check_result(
                     "security",
                     "التوكنات الأمنية",
-                    CheckStatus.PASS if tokens_found >= 1 else CheckStatus.WARNING,
-                    f"تم العثور على {tokens_found} توكن"
+                    CheckStatus.PASS if tokens_found >= 2 else CheckStatus.WARNING,
+                    f"تم العثور على {tokens_found}/3 توكن"
                 )
             
             # البحث عن الموعد القادم
             next_msg = soup.find("span", {"id": "nextMsg"})
-            if not next_msg:
-                # البحث عن نص يشير إلى موعد قادم
-                next_texts = soup.find_all(string=lambda text: "القادم" in str(text) or "الموعد" in str(text) if text else False)
-                if next_texts:
-                    analysis["next_opening"] = next_texts[0].strip()
-            
             if next_msg:
                 analysis["next_opening"] = next_msg.text.strip()
-            
-            # إضافة معلومات إضافية
-            analysis["page_size"] = len(html_content)
-            analysis["forms_found"] = len(soup.find_all("form"))
             
             return analysis
             
@@ -1014,7 +778,7 @@ class SmartPlatformMonitor:
                 "analysis",
                 "تحليل الصفحة",
                 CheckStatus.FAIL,
-                str(e)[:200]
+                str(e)
             )
             return None
     
@@ -1033,19 +797,6 @@ class SmartPlatformMonitor:
                 if reservation_id:
                     self.db.update_reservation_status(
                         reservation_id, "failed", str(result), "فشل الاتصال", True
-                    )
-                return result
-            
-            if analysis.get("cf_protected", False) and not analysis.get("is_open", False):
-                result = {
-                    "success": False,
-                    "error": "Cloudflare يحمي المنصة ويحتاج إلى تحايل إضافي",
-                    "can_retry": True,
-                    "cf_protected": True
-                }
-                if reservation_id:
-                    self.db.update_reservation_status(
-                        reservation_id, "failed", str(result), "Cloudflare يحمي المنصة", True
                     )
                 return result
             
@@ -1087,7 +838,7 @@ class SmartPlatformMonitor:
                 return result
             
             # محاكاة الإرسال الناجح (في الإصدار الحقيقي هنا يتم الإرسال الفعلي)
-            time.sleep(random.uniform(2, 4))  # محاكاة وقت الإرسال
+            time.sleep(random.uniform(1, 2))  # محاكاة وقت الإرسال
             
             # نسبة نجاح 80% للمحاكاة
             if random.random() < 0.8:
@@ -1096,8 +847,7 @@ class SmartPlatformMonitor:
                     "message": f"تم إرسال الحجز بنجاح - {plate}",
                     "reference": f"REF_{int(time.time())}_{random.randint(1000, 9999)}",
                     "timestamp": datetime.now().isoformat(),
-                    "capacity_remaining": analysis["remaining_system"] - 1,
-                    "cf_bypassed": analysis.get("cf_protected", False)
+                    "capacity_remaining": analysis["remaining_system"] - 1
                 }
                 if reservation_id:
                     self.db.update_reservation_status(
@@ -1128,21 +878,16 @@ class SmartPlatformMonitor:
                 )
             return error_result
     
-    def start_monitoring(self, interval: int = 60):
+    def start_monitoring(self, interval: int = 30):
         """بدء المراقبة التلقائية"""
         def monitor_loop():
             while self.is_monitoring:
                 try:
                     self.perform_comprehensive_check()
-                    # زيادة الفترة إذا كان هناك مشاكل مع Cloudflare
-                    current_interval = interval
-                    if self.cf_retry_count > 2:
-                        current_interval = min(interval * 2, 300)  # مضاعفة الفترة بحد أقصى 5 دقائق
-                    
-                    time.sleep(current_interval)
                 except Exception as e:
                     self.db.log(f"Monitoring error: {str(e)}", "ERROR", "monitor")
-                    time.sleep(interval)
+                
+                time.sleep(interval)
         
         if not self.is_monitoring:
             self.is_monitoring = True
@@ -1162,7 +907,7 @@ class SmartPlatformMonitor:
         with self.status_lock:
             return self.current_status
 
-# ==================== إنشاء القوالب ====================
+# ==================== وظيفة إنشاء القوالب ====================
 def create_simple_templates():
     """إنشاء قوالب HTML بسيطة"""
     templates_dir = Path("templates")
@@ -1185,7 +930,6 @@ def create_simple_templates():
             .status-closed { color: #dc3545; }
             .status-warning { color: #ffc107; }
             .stats-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-            .cf-badge { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         </style>
     </head>
     <body>
@@ -1203,9 +947,6 @@ def create_simple_templates():
                     </a>
                     <a href="/monitor" class="btn btn-outline-light me-2">
                         <i class="bi bi-graph-up"></i> المراقبة
-                    </a>
-                    <a href="/cf-bypass" class="btn btn-outline-warning me-2">
-                        <i class="bi bi-shield-check"></i> تجاوز Cloudflare
                     </a>
                     <a href="/settings" class="btn btn-outline-light me-2">
                         <i class="bi bi-gear"></i> الإعدادات
@@ -1269,21 +1010,13 @@ def create_simple_templates():
                                         <span class="status-closed">معطل</span>
                                     {% endif %}
                                 </p>
-                                {% if current_status.cf_protected %}
-                                <p><span class="badge cf-badge">محمي بـ Cloudflare</span></p>
-                                {% endif %}
                                 <p><strong>آخر تحديث:</strong> {{ current_status.timestamp }}</p>
                             {% else %}
                                 <p class="text-muted">جارٍ تحميل حالة النظام...</p>
                             {% endif %}
-                            <div class="btn-group">
-                                <button class="btn btn-sm btn-outline-primary" onclick="refreshStatus()">
-                                    <i class="bi bi-arrow-clockwise"></i> تحديث
-                                </button>
-                                <button class="btn btn-sm btn-outline-warning" onclick="cfBypassCheck()">
-                                    <i class="bi bi-shield-check"></i> تحقق متقدم
-                                </button>
-                            </div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="refreshStatus()">
+                                <i class="bi bi-arrow-clockwise"></i> تحديث
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1409,15 +1142,6 @@ def create_simple_templates():
                 location.reload();
             }
             
-            async function cfBypassCheck() {
-                const response = await fetch('/api/cf-bypass', { method: 'POST' });
-                const result = await response.json();
-                alert(result.message);
-                if (result.success) {
-                    setTimeout(() => location.reload(), 2000);
-                }
-            }
-            
             async function submitReservation(reservationId) {
                 const response = await fetch(`/api/reservations/${reservationId}/submit`, { method: 'POST' });
                 const result = await response.json();
@@ -1444,21 +1168,335 @@ def create_simple_templates():
     
     (templates_dir / "dashboard.html").write_text(dashboard_html, encoding="utf-8")
     
-    # صفحة تجاوز Cloudflare
-    cf_bypass_html = """
+    # صفحة الحجوزات
+    reservations_html = """
     <!DOCTYPE html>
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>تجاوز Cloudflare</title>
+        <title>إدارة الحجوزات</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
         <style>
             .card { margin-bottom: 1rem; }
-            .method-card { border-left: 4px solid #0d6efd; }
-            .proxy-card { border-left: 4px solid #198754; }
-            .warning-card { border-left: 4px solid #ffc107; }
+            .table-hover tbody tr:hover { background-color: rgba(0,0,0,.075); }
+        </style>
+    </head>
+    <body>
+        <nav class="navbar navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-speedometer2"></i> نظام مراقبة الحجوزات
+                </a>
+                <div class="d-flex">
+                    <a href="/dashboard" class="btn btn-outline-light me-2">لوحة التحكم</a>
+                    <a href="/reservations" class="btn btn-light me-2">الحجوزات</a>
+                    <a href="/monitor" class="btn btn-outline-light me-2">المراقبة</a>
+                    <a href="/settings" class="btn btn-outline-light">الإعدادات</a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="container mt-4">
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-plus-circle"></i> إضافة حجز جديد</h5>
+                            <form id="addReservationForm">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" placeholder="اسم البائع" id="seller" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" placeholder="اسم المشتري" id="buyer" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" placeholder="رقم اللوحة" id="plate" required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <select class="form-control" id="priority">
+                                            <option value="1">عادي</option>
+                                            <option value="2">متوسط</option>
+                                            <option value="3">عالي</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="bi bi-plus"></i> إضافة
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                    <i class="bi bi-upload"></i> رفع ملف CSV
+                                </button>
+                                <a href="/api/reports/reservations?format=csv" class="btn btn-outline-secondary">
+                                    <i class="bi bi-download"></i> تصدير CSV
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-list-ul"></i> قائمة الحجوزات
+                                <span class="badge bg-secondary">{{ total_reservations }}</span>
+                            </h5>
+                            <div class="btn-group mt-2">
+                                <a href="?status=all&page=1" class="btn btn-sm btn-outline-secondary {% if current_status == 'all' %}active{% endif %}">الكل</a>
+                                <a href="?status=pending&page=1" class="btn btn-sm btn-outline-warning {% if current_status == 'pending' %}active{% endif %}">معلق</a>
+                                <a href="?status=submitted&page=1" class="btn btn-sm btn-outline-success {% if current_status == 'submitted' %}active{% endif %}">مكتمل</a>
+                                <a href="?status=failed&page=1" class="btn btn-sm btn-outline-danger {% if current_status == 'failed' %}active{% endif %}">فشل</a>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if reservations %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>رقم الحجز</th>
+                                                <th>البائع</th>
+                                                <th>المشتري</th>
+                                                <th>اللوحة</th>
+                                                <th>الأولوية</th>
+                                                <th>الحالة</th>
+                                                <th>المحاولات</th>
+                                                <th>الإنشاء</th>
+                                                <th>الإجراءات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for res in reservations %}
+                                            <tr>
+                                                <td><small>{{ res.reservation_id }}</small></td>
+                                                <td>{{ res.seller_name }}</td>
+                                                <td>{{ res.buyer_name }}</td>
+                                                <td><strong>{{ res.plate_number }}</strong></td>
+                                                <td>
+                                                    {% if res.priority == 1 %}
+                                                        <span class="badge bg-secondary">عادي</span>
+                                                    {% elif res.priority == 2 %}
+                                                        <span class="badge bg-info">متوسط</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">عالي</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if res.status == 'pending' %}
+                                                        <span class="badge bg-warning">معلق</span>
+                                                    {% elif res.status == 'submitted' %}
+                                                        <span class="badge bg-success">مكتمل</span>
+                                                    {% elif res.status == 'failed' %}
+                                                        <span class="badge bg-danger">فشل</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">{{ res.status }}</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ res.attempts }}</td>
+                                                <td><small>{{ res.created_at }}</small></td>
+                                                <td>
+                                                    {% if res.status == 'pending' %}
+                                                        <button class="btn btn-sm btn-success" onclick="submitReservation('{{ res.reservation_id }}')">
+                                                            <i class="bi bi-send"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    <button class="btn btn-sm btn-danger" onclick="deleteReservation('{{ res.reservation_id }}')">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- الترقيم -->
+                                {% if total_pages > 1 %}
+                                <nav>
+                                    <ul class="pagination justify-content-center">
+                                        {% if current_page > 1 %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?status={{ current_status }}&page={{ current_page-1 }}">السابق</a>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% for page_num in range(1, total_pages+1) %}
+                                            {% if page_num == current_page %}
+                                                <li class="page-item active">
+                                                    <span class="page-link">{{ page_num }}</span>
+                                                </li>
+                                            {% else %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?status={{ current_status }}&page={{ page_num }}">{{ page_num }}</a>
+                                                </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if current_page < total_pages %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?status={{ current_status }}&page={{ current_page+1 }}">التالي</a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                                {% endif %}
+                                
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                                    <p class="text-muted mt-3">لا توجد حجوزات</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal لرفع الملف -->
+        <div class="modal fade" id="uploadModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">رفع ملف CSV</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>رفع ملف CSV يحتوي على الحجوزات. التنسيق:</p>
+                        <pre>البائع,المشتري,رقم اللوحة,الأولوية(اختياري)</pre>
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <input type="file" class="form-control" id="csvFile" accept=".csv" required>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="hasHeader" checked>
+                                <label class="form-check-label" for="hasHeader">
+                                    الملف يحتوي على عناوين
+                                </label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                        <button type="button" class="btn btn-primary" onclick="uploadCSV()">رفع</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            document.getElementById('addReservationForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const data = {
+                    seller_name: document.getElementById('seller').value,
+                    buyer_name: document.getElementById('buyer').value,
+                    plate_number: document.getElementById('plate').value,
+                    priority: parseInt(document.getElementById('priority').value)
+                };
+                
+                const response = await fetch('/api/reservations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('تم إضافة الحجز بنجاح');
+                    location.reload();
+                } else {
+                    alert('فشل إضافة الحجز: ' + result.message);
+                }
+            });
+            
+            async function submitReservation(reservationId) {
+                if (confirm('هل تريد إرسال هذا الحجز؟')) {
+                    const response = await fetch(`/api/reservations/${reservationId}/submit`, {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    alert(result.message);
+                    if (result.success) {
+                        location.reload();
+                    }
+                }
+            }
+            
+            async function deleteReservation(reservationId) {
+                if (confirm('هل أنت متأكد من حذف هذا الحجز؟')) {
+                    const response = await fetch(`/api/reservations/${reservationId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        location.reload();
+                    } else {
+                        alert('فشل حذف الحجز');
+                    }
+                }
+            }
+            
+            async function uploadCSV() {
+                const fileInput = document.getElementById('csvFile');
+                const hasHeader = document.getElementById('hasHeader').checked;
+                
+                if (!fileInput.files[0]) {
+                    alert('يرجى اختيار ملف');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('has_header', hasHeader);
+                
+                const response = await fetch('/api/reservations/upload-csv', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert(`تم رفع ${result.total_count} حجز بنجاح`);
+                    location.reload();
+                } else {
+                    alert('فشل رفع الملف');
+                }
+            }
+        </script>
+    </body>
+    </html>
+    """
+    
+    (templates_dir / "reservations.html").write_text(reservations_html, encoding="utf-8")
+    
+    # صفحة المراقبة
+    monitor_html = """
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>مراقبة النظام</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+        <style>
+            .card { margin-bottom: 1rem; }
+            .log-item { border-bottom: 1px solid #eee; padding: 5px 0; }
+            .log-item:last-child { border-bottom: none; }
         </style>
     </head>
     <body>
@@ -1470,122 +1508,81 @@ def create_simple_templates():
                 <div class="d-flex">
                     <a href="/dashboard" class="btn btn-outline-light me-2">لوحة التحكم</a>
                     <a href="/reservations" class="btn btn-outline-light me-2">الحجوزات</a>
-                    <a href="/monitor" class="btn btn-outline-light me-2">المراقبة</a>
-                    <a href="/cf-bypass" class="btn btn-warning me-2">تجاوز Cloudflare</a>
+                    <a href="/monitor" class="btn btn-light me-2">المراقبة</a>
                     <a href="/settings" class="btn btn-outline-light">الإعدادات</a>
                 </div>
             </div>
         </nav>
         
         <div class="container mt-4">
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card warning-card">
-                        <div class="card-body">
-                            <h4 class="card-title">
-                                <i class="bi bi-shield-exclamation"></i> تجاوز حماية Cloudflare
-                            </h4>
-                            <p class="card-text">
-                                Cloudflare يحظر الطلبات الآلية. استخدم هذه الأدوات لتحسين فرص الوصول للمنصة.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <h2><i class="bi bi-graph-up"></i> مراقبة النظام</h2>
+            <p class="text-muted">مراقبة حالة المنصة والتحققات</p>
             
             <div class="row">
                 <div class="col-md-6">
-                    <div class="card method-card">
-                        <div class="card-header bg-primary text-white">
-                            <i class="bi bi-gear"></i> طرق تجاوز Cloudflare
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <i class="bi bi-arrow-repeat"></i> تحقق فوري
                         </div>
                         <div class="card-body">
-                            <div class="list-group">
-                                <div class="list-group-item">
-                                    <h6><i class="bi bi-check-circle text-success"></i> تغيير User-Agent</h6>
-                                    <small>استخدام متصفحات وعمليات مختلفة</small>
-                                </div>
-                                <div class="list-group-item">
-                                    <h6><i class="bi bi-check-circle text-success"></i> إضافة Referers متنوعة</h6>
-                                    <small>محاكاة حركة مرور طبيعية</small>
-                                </div>
-                                <div class="list-group-item">
-                                    <h6><i class="bi bi-sliders"></i> استخدام البروكسيات</h6>
-                                    <small>تغيير عنوان IP للطلبات</small>
-                                </div>
-                                <div class="list-group-item">
-                                    <h6><i class="bi bi-clock"></i> التوقيت العشوائي</h6>
-                                    <small>تجنب الأنماط القابلة للاكتشاف</small>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-3">
-                                <button class="btn btn-primary w-100" onclick="testAllMethods()">
-                                    <i class="bi bi-play-circle"></i> اختبار جميع الطرق
-                                </button>
-                            </div>
+                            <p>إجراء تحقق فوري لحالة المنصة</p>
+                            <button class="btn btn-primary" onclick="performCheck()">
+                                <i class="bi bi-arrow-clockwise"></i> إجراء تحقق
+                            </button>
+                            <div id="checkResult" class="mt-3"></div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="col-md-6">
-                    <div class="card proxy-card">
-                        <div class="card-header bg-success text-white">
-                            <i class="bi bi-shuffle"></i> إدارة البروكسيات
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <i class="bi bi-shield-check"></i> حالة الكوكيز
                         </div>
                         <div class="card-body">
+                            <p>إدارة ملفات الكوكيز للوصول للمنصة</p>
                             <div class="mb-3">
-                                <label class="form-label">قائمة البروكسيات (واحد لكل سطر)</label>
-                                <textarea class="form-control" id="proxyList" rows="5" placeholder="http://proxy1:port
-http://proxy2:port
-https://proxy3:port"></textarea>
-                                <div class="form-text">أدخل عناوين البروكسيات لتغيير عنوان IP</div>
+                                <input type="file" id="cookieFile" class="form-control" accept=".json">
                             </div>
-                            
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" id="useProxy">
-                                <label class="form-check-label" for="useProxy">
-                                    تمكين استخدام البروكسيات
-                                </label>
-                            </div>
-                            
-                            <button class="btn btn-success" onclick="saveProxies()">
-                                <i class="bi bi-save"></i> حفظ الإعدادات
+                            <button class="btn btn-success" onclick="uploadCookies()">
+                                <i class="bi bi-upload"></i> رفع الكوكيز
                             </button>
-                            <button class="btn btn-outline-secondary" onclick="loadProxySettings()">
-                                <i class="bi bi-arrow-clockwise"></i> تحميل
+                            <button class="btn btn-outline-secondary" onclick="checkCookies()">
+                                <i class="bi bi-eye"></i> عرض الحالة
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header bg-info text-white">
-                            <i class="bi bi-speedometer"></i> اختبار الاتصال
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <button class="btn btn-outline-primary w-100 mb-2" onclick="testMethod('simple')">
-                                        <i class="bi bi-lightning"></i> اختبار بسيط
-                                    </button>
-                                </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-outline-success w-100 mb-2" onclick="testMethod('proxy')">
-                                        <i class="bi bi-shuffle"></i> اختبار بالبروكسي
-                                    </button>
-                                </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-outline-warning w-100 mb-2" onclick="testMethod('advanced')">
-                                        <i class="bi bi-magic"></i> اختبار متقدم
-                                    </button>
+            <div class="card mt-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-clock-history"></i> سجلات المراقبة
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>آخر التحققات</h5>
+                            <div id="recentChecks" class="mt-3" style="max-height: 300px; overflow-y: auto;">
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">جار التحميل...</span>
+                                    </div>
+                                    <span class="ms-2">جار تحميل التحققات...</span>
                                 </div>
                             </div>
-                            
-                            <div id="testResults" class="mt-3"></div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5>سجلات النظام</h5>
+                            <div id="systemLogs" class="mt-3" style="max-height: 300px; overflow-y: auto;">
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">جار التحميل...</span>
+                                    </div>
+                                    <span class="ms-2">جار تحميل السجلات...</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1594,24 +1591,287 @@ https://proxy3:port"></textarea>
         
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
         <script>
-            async function loadProxySettings() {
+            async function performCheck() {
+                const resultDiv = document.getElementById('checkResult');
+                resultDiv.innerHTML = '<div class="alert alert-info">جار التحقق...</div>';
+                
+                const response = await fetch('/api/check', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h5>✓ تم التحقق بنجاح</h5>
+                            <p>النظام: ${result.data.is_open ? 'مفتوح' : 'مغلق'}</p>
+                            <p>السعة المتبقية: ${result.data.remaining_system}</p>
+                            <p>الوقت: ${new Date(result.data.timestamp).toLocaleString()}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5>✗ فشل التحقق</h5>
+                            <p>${result.message}</p>
+                        </div>
+                    `;
+                }
+                
+                // تحديث القوائم بعد التحقق
+                loadRecentChecks();
+                loadSystemLogs();
+            }
+            
+            async function uploadCookies() {
+                const fileInput = document.getElementById('cookieFile');
+                if (!fileInput.files[0]) {
+                    alert('يرجى اختيار ملف الكوكيز');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                
+                const response = await fetch('/api/cookies/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                alert(result.message);
+            }
+            
+            async function checkCookies() {
+                const response = await fetch('/api/cookies/status');
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`حالة الكوكيز: ${result.has_cookies ? '✓ موجودة' : '✗ غير موجودة'}\\nالعدد: ${result.count}`);
+                }
+            }
+            
+            async function loadRecentChecks() {
+                const response = await fetch('/api/reports/checks?limit=10');
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    const checksDiv = document.getElementById('recentChecks');
+                    let html = '<div class="list-group">';
+                    
+                    result.data.forEach(check => {
+                        const statusBadge = check.status === 'pass' ? 'success' : 
+                                          check.status === 'fail' ? 'danger' : 'warning';
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <strong>${check.check_name}</strong>
+                                    <span class="badge bg-${statusBadge}">${check.status}</span>
+                                </div>
+                                <small class="text-muted d-block">${check.timestamp}</small>
+                                <small>${check.details}</small>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    checksDiv.innerHTML = html;
+                } else {
+                    document.getElementById('recentChecks').innerHTML = 
+                        '<p class="text-muted">لا توجد تحققات حديثة</p>';
+                }
+            }
+            
+            async function loadSystemLogs() {
+                const response = await fetch('/api/system/logs?limit=10');
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    const logsDiv = document.getElementById('systemLogs');
+                    let html = '<div class="list-group">';
+                    
+                    result.data.forEach(log => {
+                        const levelBadge = log.level === 'INFO' ? 'success' : 
+                                         log.level === 'ERROR' ? 'danger' : 'warning';
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">${log.timestamp}</small>
+                                    <span class="badge bg-${levelBadge}">${log.level}</span>
+                                </div>
+                                <small>${log.message}</small>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    logsDiv.innerHTML = html;
+                } else {
+                    document.getElementById('systemLogs').innerHTML = 
+                        '<p class="text-muted">لا توجد سجلات حديثة</p>';
+                }
+            }
+            
+            // تحميل السجلات عند فتح الصفحة
+            window.addEventListener('load', () => {
+                loadRecentChecks();
+                loadSystemLogs();
+                
+                // تحديث كل 30 ثانية
+                setInterval(() => {
+                    loadRecentChecks();
+                    loadSystemLogs();
+                }, 30000);
+            });
+        </script>
+    </body>
+    </html>
+    """
+    
+    (templates_dir / "monitor.html").write_text(monitor_html, encoding="utf-8")
+    
+    # صفحة الإعدادات
+    settings_html = """
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>إعدادات النظام</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    </head>
+    <body>
+        <nav class="navbar navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-speedometer2"></i> نظام مراقبة الحجوزات
+                </a>
+                <div class="d-flex">
+                    <a href="/dashboard" class="btn btn-outline-light me-2">لوحة التحكم</a>
+                    <a href="/reservations" class="btn btn-outline-light me-2">الحجوزات</a>
+                    <a href="/monitor" class="btn btn-outline-light me-2">المراقبة</a>
+                    <a href="/settings" class="btn btn-light">الإعدادات</a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="container mt-4">
+            <h2><i class="bi bi-gear"></i> إعدادات النظام</h2>
+            <p class="text-muted">تعديل إعدادات النظام والمراقبة</p>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form id="settingsForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">فترة المراقبة (ثانية)</label>
+                                <input type="number" class="form-control" id="check_interval" min="10" max="300" required>
+                                <div class="form-text">الفترة بين كل تحقق تلقائي</div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">عدد المحاولات الأقصى</label>
+                                <input type="number" class="form-control" id="max_attempts" min="1" max="10" required>
+                                <div class="form-text">أقصى عدد محاولات لكل حجز</div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">عنوان المنصة</label>
+                                <input type="url" class="form-control" id="target_url" required>
+                                <div class="form-text">رابط المنصة المستهدفة</div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">الإرسال المتزامن</label>
+                                <input type="number" class="form-control" id="concurrent_submissions" min="1" max="5" required>
+                                <div class="form-text">عدد الحجوزات المرسلة في نفس الوقت</div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">إعادة المحاولة التلقائية</label>
+                                <select class="form-select" id="auto_retry">
+                                    <option value="true">مفعل</option>
+                                    <option value="false">معطل</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">الإشعارات</label>
+                                <select class="form-select" id="notification_enabled">
+                                    <option value="true">مفعل</option>
+                                    <option value="false">معطل</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> حفظ الإعدادات
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="loadSettings()">
+                            <i class="bi bi-arrow-clockwise"></i> إعادة تحميل
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header bg-danger text-white">
+                    <i class="bi bi-exclamation-triangle"></i> إجراءات خطيرة
+                </div>
+                <div class="card-body">
+                    <p>تنظيف البيانات القديمة وإعادة تعيين النظام</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">تنظيف البيانات القديمة (أيام)</label>
+                                <input type="number" class="form-control" id="cleanupDays" value="7" min="1" max="365">
+                            </div>
+                            <button class="btn btn-warning" onclick="cleanupData()">
+                                <i class="bi bi-trash"></i> تنظيف البيانات
+                            </button>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <p class="text-danger"><strong>تحذير:</strong> إعادة التعيين ستحذف جميع الإعدادات</p>
+                            <button class="btn btn-danger" onclick="resetSystem()">
+                                <i class="bi bi-arrow-repeat"></i> إعادة تعيين النظام
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            // تحميل الإعدادات عند فتح الصفحة
+            window.addEventListener('load', loadSettings);
+            
+            async function loadSettings() {
                 const response = await fetch('/api/settings');
                 const result = await response.json();
                 
                 if (result.success) {
-                    document.getElementById('proxyList').value = result.data.proxy_list || '';
-                    document.getElementById('useProxy').checked = result.data.use_proxy === 'true';
+                    const settings = result.data;
+                    Object.keys(settings).forEach(key => {
+                        const element = document.getElementById(key);
+                        if (element) {
+                            element.value = settings[key];
+                        }
+                    });
                 }
             }
             
-            async function saveProxies() {
-                const proxyList = document.getElementById('proxyList').value;
-                const useProxy = document.getElementById('useProxy').checked;
+            document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
                 
-                const settings = {
-                    proxy_list: proxyList,
-                    use_proxy: useProxy.toString()
-                };
+                const settings = {};
+                
+                ['check_interval', 'max_attempts', 'target_url', 'concurrent_submissions', 'auto_retry', 'notification_enabled'].forEach(key => {
+                    const element = document.getElementById(key);
+                    if (element) {
+                        settings[key] = element.value;
+                    }
+                });
                 
                 const response = await fetch('/api/settings', {
                     method: 'POST',
@@ -1621,172 +1881,244 @@ https://proxy3:port"></textarea>
                 
                 const result = await response.json();
                 if (result.success) {
-                    alert('تم حفظ إعدادات البروكسي بنجاح');
+                    alert('✓ تم حفظ الإعدادات بنجاح');
                 } else {
-                    alert('فشل حفظ الإعدادات');
+                    alert('✗ فشل حفظ الإعدادات');
                 }
-            }
+            });
             
-            async function testMethod(method) {
-                const resultsDiv = document.getElementById('testResults');
-                resultsDiv.innerHTML = '<div class="alert alert-info">جار الاختبار...</div>';
-                
-                const response = await fetch(`/api/test-connection?method=${method}`, {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    resultsDiv.innerHTML = `
-                        <div class="alert alert-success">
-                            <h5>✓ الاختبار ناجح</h5>
-                            <p>${result.message}</p>
-                            <p><strong>الوقت:</strong> ${result.timestamp}</p>
-                            <p><strong>طريقة:</strong> ${result.method}</p>
-                            <p><strong>حالة النظام:</strong> ${result.data.is_open ? 'مفتوح' : 'مغلق'}</p>
-                            <p><strong>سعة متبقية:</strong> ${result.data.remaining_system}</p>
-                        </div>
-                    `;
-                } else {
-                    resultsDiv.innerHTML = `
-                        <div class="alert alert-danger">
-                            <h5>✗ فشل الاختبار</h5>
-                            <p>${result.message}</p>
-                            <p><strong>الخطأ:</strong> ${result.error || 'غير معروف'}</p>
-                        </div>
-                    `;
-                }
-            }
-            
-            async function testAllMethods() {
-                const methods = ['simple', 'proxy', 'advanced'];
-                const resultsDiv = document.getElementById('testResults');
-                resultsDiv.innerHTML = '<div class="alert alert-info">جار اختبار جميع الطرق...</div>';
-                
-                let success = false;
-                for (const method of methods) {
-                    const response = await fetch(`/api/test-connection?method=${method}`, {
+            async function cleanupData() {
+                const days = document.getElementById('cleanupDays').value;
+                if (confirm(`هل تريد تنظيف البيانات الأقدم من ${days} يوم؟`)) {
+                    const response = await fetch(`/api/maintenance/cleanup?days=${days}`, {
                         method: 'POST'
                     });
                     
                     const result = await response.json();
-                    if (result.success) {
-                        success = true;
-                        resultsDiv.innerHTML = `
-                            <div class="alert alert-success">
-                                <h5>✓ نجحت طريقة ${result.method}</h5>
-                                <p>${result.message}</p>
-                                <p><strong>الحالة:</strong> ${result.data.is_open ? 'مفتوح' : 'مغلق'}</p>
-                                <p><strong>السعة:</strong> ${result.data.remaining_system}</p>
-                                <button class="btn btn-sm btn-success mt-2" onclick="useMethod('${result.method}')">
-                                    استخدام هذه الطريقة
-                                </button>
-                            </div>
-                        `;
-                        break;
-                    }
-                }
-                
-                if (!success) {
-                    resultsDiv.innerHTML = `
-                        <div class="alert alert-danger">
-                            <h5>✗ فشلت جميع الطرق</h5>
-                            <p>يجب تحديث الكوكيز أو إعدادات البروكسي</p>
-                            <button class="btn btn-sm btn-warning mt-2" onclick="uploadNewCookies()">
-                                <i class="bi bi-upload"></i> رفع كوكيز جديدة
-                            </button>
-                        </div>
-                    `;
-                }
-            }
-            
-            async function useMethod(method) {
-                const response = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ default_method: method })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    alert(`تم تعيين ${method} كطريقة افتراضية`);
-                }
-            }
-            
-            async function uploadNewCookies() {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.json';
-                
-                input.onchange = async (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    
-                    const response = await fetch('/api/cookies/upload', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const result = await response.json();
                     alert(result.message);
-                    if (result.success) {
-                        location.reload();
-                    }
-                };
-                
-                input.click();
+                }
             }
             
-            // تحميل الإعدادات عند فتح الصفحة
-            window.addEventListener('load', loadProxySettings);
+            async function resetSystem() {
+                if (confirm('تحذير: هذا سيعيد تعيين جميع الإعدادات. هل أنت متأكد؟')) {
+                    if (confirm('هل أنت متأكد تماماً؟ هذا الإجراء لا يمكن التراجع عنه!')) {
+                        const response = await fetch('/api/maintenance/reset?confirm=true', {
+                            method: 'POST'
+                        });
+                        
+                        const result = await response.json();
+                        alert(result.message);
+                        loadSettings();
+                    }
+                }
+            }
         </script>
     </body>
     </html>
     """
     
-    (templates_dir / "cf-bypass.html").write_text(cf_bypass_html, encoding="utf-8")
+    (templates_dir / "settings.html").write_text(settings_html, encoding="utf-8")
     
-    # صفحات أخرى (مختصرة)
-    for template_name, content in {
-        "reservations.html": "<!-- صفحة الحجوزات -->",
-        "monitor.html": "<!-- صفحة المراقبة -->",
-        "settings.html": "<!-- صفحة الإعدادات -->",
-        "reports.html": "<!-- صفحة التقارير -->"
-    }.items():
-        (templates_dir / template_name).write_text(f"""
-        <!DOCTYPE html>
-        <html dir="rtl" lang="ar">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>{template_name.replace('.html', '')}</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        </head>
-        <body>
-            <nav class="navbar navbar-dark bg-dark">
-                <div class="container-fluid">
-                    <a class="navbar-brand" href="/">نظام مراقبة الحجوزات</a>
-                    <div class="d-flex">
-                        <a href="/dashboard" class="btn btn-outline-light me-2">لوحة التحكم</a>
-                        <a href="/reservations" class="btn btn-outline-light me-2">الحجوزات</a>
-                        <a href="/monitor" class="btn btn-outline-light me-2">المراقبة</a>
-                        <a href="/cf-bypass" class="btn btn-outline-warning me-2">تجاوز Cloudflare</a>
-                        <a href="/settings" class="btn btn-outline-light">الإعدادات</a>
+    # صفحة التقارير
+    reports_html = """
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>التقارير والإحصائيات</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    </head>
+    <body>
+        <nav class="navbar navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-speedometer2"></i> نظام مراقبة الحجوزات
+                </a>
+                <div class="d-flex">
+                    <a href="/dashboard" class="btn btn-outline-light me-2">لوحة التحكم</a>
+                    <a href="/reservations" class="btn btn-outline-light me-2">الحجوزات</a>
+                    <a href="/monitor" class="btn btn-outline-light me-2">المراقبة</a>
+                    <a href="/settings" class="btn btn-outline-light me-2">الإعدادات</a>
+                    <a href="/reports" class="btn btn-light">التقارير</a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="container mt-4">
+            <h2><i class="bi bi-bar-chart"></i> التقارير والإحصائيات</h2>
+            <p class="text-muted">تقارير أداء النظام وإحصائيات الحجوزات</p>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <i class="bi bi-download"></i> تصدير التقارير
+                        </div>
+                        <div class="card-body">
+                            <p>تصدير البيانات بتنسيقات مختلفة</p>
+                            <div class="d-grid gap-2">
+                                <a href="/api/reports/reservations?format=csv" class="btn btn-outline-primary">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i> تصدير الحجوزات (CSV)
+                                </a>
+                                <a href="/api/reports/checks?format=csv" class="btn btn-outline-secondary">
+                                    <i class="bi bi-file-text"></i> تصدير التحققات (CSV)
+                                </a>
+                                <a href="/api/health" class="btn btn-outline-info">
+                                    <i class="bi bi-heart-pulse"></i> تقرير صحة النظام (JSON)
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </nav>
-            <div class="container mt-4">
-                <h2>جار تطوير هذه الصفحة...</h2>
-                <p>{content}</p>
-                <a href="/dashboard" class="btn btn-primary mt-3">العودة للوحة التحكم</a>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <i class="bi bi-speedometer"></i> الإحصائيات السريعة
+                        </div>
+                        <div class="card-body" id="quickStats">
+                            <div class="text-center">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">جار التحميل...</span>
+                                </div>
+                                <span class="ms-2">جار تحميل الإحصائيات...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </body>
-        </html>
-        """, encoding="utf-8")
+            
+            <div class="card mt-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-clock-history"></i> آخر النشاطات
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>آخر التحققات</h5>
+                            <div id="recentChecks"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>آخر الحجوزات</h5>
+                            <div id="recentReservations"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            // تحميل الإحصائيات السريعة
+            async function loadQuickStats() {
+                const response = await fetch('/api/stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = result.data;
+                    let html = `
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h4>${stats.reservations.pending || 0}</h4>
+                                <small>حجوزات معلقة</small>
+                            </div>
+                            <div class="col-6">
+                                <h4>${stats.reservations.submitted || 0}</h4>
+                                <small>حجوزات مكتملة</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h5>${stats.today_attempts || 0}</h5>
+                                <small>محاولات اليوم</small>
+                            </div>
+                            <div class="col-6">
+                                <h5>${stats.success_rate || 0}%</h5>
+                                <small>معدل النجاح</small>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('quickStats').innerHTML = html;
+                }
+            }
+            
+            // تحميل آخر التحققات
+            async function loadRecentChecks() {
+                const response = await fetch('/api/reports/checks?limit=5');
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    let html = '<div class="list-group">';
+                    result.data.forEach(check => {
+                        const icon = check.status === 'pass' ? 'bi-check-circle text-success' :
+                                   check.status === 'fail' ? 'bi-x-circle text-danger' : 
+                                   'bi-exclamation-triangle text-warning';
+                        html += `
+                            <div class="list-group-item">
+                                <i class="bi ${icon} me-2"></i>
+                                <strong>${check.check_name}</strong>
+                                <small class="text-muted d-block">${check.timestamp}</small>
+                                <small>${check.details}</small>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    document.getElementById('recentChecks').innerHTML = html;
+                } else {
+                    document.getElementById('recentChecks').innerHTML = 
+                        '<p class="text-muted">لا توجد تحققات حديثة</p>';
+                }
+            }
+            
+            // تحميل آخر الحجوزات
+            async function loadRecentReservations() {
+                const response = await fetch('/api/reservations?limit=5');
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    let html = '<div class="list-group">';
+                    result.data.forEach(res => {
+                        const statusColor = res.status === 'pending' ? 'warning' :
+                                          res.status === 'submitted' ? 'success' : 'danger';
+                        html += `
+                            <div class="list-group-item">
+                                <strong>${res.plate_number}</strong>
+                                <span class="badge bg-${statusColor} float-start">${res.status}</span>
+                                <small class="text-muted d-block">${res.seller_name} → ${res.buyer_name}</small>
+                                <small>${res.created_at}</small>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    document.getElementById('recentReservations').innerHTML = html;
+                } else {
+                    document.getElementById('recentReservations').innerHTML = 
+                        '<p class="text-muted">لا توجد حجوزات حديثة</p>';
+                }
+            }
+            
+            // تحميل جميع البيانات عند فتح الصفحة
+            window.addEventListener('load', () => {
+                loadQuickStats();
+                loadRecentChecks();
+                loadRecentReservations();
+                
+                // تحديث كل 30 ثانية
+                setInterval(() => {
+                    loadQuickStats();
+                    loadRecentChecks();
+                    loadRecentReservations();
+                }, 30000);
+            });
+        </script>
+    </body>
+    </html>
+    """
+    
+    (templates_dir / "reports.html").write_text(reports_html, encoding="utf-8")
 
 # ==================== تطبيق FastAPI ====================
 @asynccontextmanager
@@ -1814,24 +2146,24 @@ async def lifespan(app: FastAPI):
 
 # إنشاء التطبيق
 app = FastAPI(
-    title="نظام مراقبة وإدارة الحجوزات مع تجاوز Cloudflare",
-    description="نظام متكامل لمراقبة منصة الحجوزات وإدارتها مع تجاوز حماية Cloudflare",
-    version="3.0.0",
+    title="نظام مراقبة وإدارة الحجوزات",
+    description="نظام متكامل لمراقبة منصة الحجوزات وإدارتها",
+    version="1.0.0",
     lifespan=lifespan
 )
 
 # إعداد القوالب
 templates = Jinja2Templates(directory="templates")
 
-# ==================== واجهات API الرئيسية ====================
+# ==================== واجهات الويب الرئيسية ====================
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
-    """لوحة التحكم الرئيسية"""
-    return await dashboard_page(request)
+    """الصفحة الرئيسية - توجيه للوحة التحكم"""
+    return RedirectResponse(url="/dashboard")
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
-    """صفحة لوحة التحكم"""
+    """لوحة التحكم الرئيسية"""
     db: DatabaseManager = request.app.state.db
     monitor: SmartPlatformMonitor = request.app.state.monitor
     
@@ -1842,11 +2174,6 @@ async def dashboard_page(request: Request):
     recent_logs = db.get_system_logs(limit=5)
     current_status = monitor.get_current_status()
     
-    # الإعدادات
-    settings = {}
-    for key in ['check_interval', 'max_attempts', 'concurrent_submissions', 'auto_retry', 'use_proxy']:
-        settings[key] = db.get_setting(key)
-    
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "stats": stats,
@@ -1854,135 +2181,549 @@ async def dashboard_page(request: Request):
         "pending_reservations": pending_reservations,
         "recent_logs": recent_logs,
         "current_status": current_status,
-        "settings": settings,
         "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })
 
-@app.get("/cf-bypass", response_class=HTMLResponse)
-async def cf_bypass_page(request: Request):
-    """صفحة تجاوز Cloudflare"""
-    return templates.TemplateResponse("cf-bypass.html", {"request": request})
-
-# واجهات API جديدة لتجاوز Cloudflare
-@app.post("/api/cf-bypass")
-async def perform_cf_bypass_check(request: Request):
-    """إجراء تحقق باستخدام طرق تجاوز Cloudflare"""
-    monitor: SmartPlatformMonitor = request.app.state.monitor
+@app.get("/reservations", response_class=HTMLResponse)
+async def reservations_page(request: Request):
+    """صفحة إدارة الحجوزات"""
     db: DatabaseManager = request.app.state.db
     
-    db.log("Starting Cloudflare bypass check", "INFO", "cloudflare")
+    status_filter = request.query_params.get("status", "all")
+    page = int(request.query_params.get("page", 1))
+    limit = 20
     
-    # محاولة الطرق البديلة
-    result = monitor.try_alternative_methods(monitor.target_url)
-    
-    if result:
-        return {
-            "success": True,
-            "message": "تم تجاوز Cloudflare بنجاح",
-            "data": result
-        }
+    if status_filter != "all":
+        reservations = db.get_all_reservations(limit=1000, status=status_filter)
     else:
-        return {
-            "success": False,
-            "message": "فشل تجاوز Cloudflare مع جميع الطرق",
-            "error": "يحتاج تحديث الكوكيز أو إعدادات البروكسي"
-        }
+        reservations = db.get_all_reservations(limit=1000)
+    
+    # الترقيم البسيط
+    total = len(reservations)
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    paginated_reservations = reservations[start_idx:end_idx]
+    
+    return templates.TemplateResponse("reservations.html", {
+        "request": request,
+        "reservations": paginated_reservations,
+        "current_status": status_filter,
+        "current_page": page,
+        "total_pages": (total + limit - 1) // limit,
+        "total_reservations": total
+    })
 
-@app.post("/api/test-connection")
-async def test_connection_method(request: Request, method: str = "simple"):
-    """اختبار طريقة اتصال معينة"""
+@app.get("/monitor", response_class=HTMLResponse)
+async def monitor_page(request: Request):
+    """صفحة المراقبة"""
+    db: DatabaseManager = request.app.state.db
     monitor: SmartPlatformMonitor = request.app.state.monitor
+    
+    checks = db.get_check_results(limit=50)
+    current_status = monitor.get_current_status()
+    logs = db.get_system_logs(limit=20)
+    
+    return templates.TemplateResponse("monitor.html", {
+        "request": request,
+        "checks": checks,
+        "current_status": current_status,
+        "logs": logs,
+        "is_monitoring": monitor.is_monitoring
+    })
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """صفحة الإعدادات"""
     db: DatabaseManager = request.app.state.db
     
-    db.log(f"Testing connection method: {method}", "INFO", "test")
+    settings_keys = [
+        'check_interval', 'max_attempts', 'concurrent_submissions',
+        'target_url', 'auto_retry', 'notification_enabled'
+    ]
     
-    if method == "simple":
-        # طريقة بسيطة
-        result = monitor.try_with_simple_requests(monitor.target_url)
-    elif method == "proxy":
-        # طريقة مع بروكسي
-        if monitor.get_proxy():
-            # حفظ الإعدادات المؤقتة
-            old_use_proxy = db.get_setting('use_proxy', 'false')
-            db.update_setting('use_proxy', 'true')
-            
-            # إعادة تحميل البروكسيات
-            monitor.proxies = monitor.load_proxies()
-            
-            result = monitor.perform_comprehensive_check()
-            
-            # استعادة الإعدادات
-            db.update_setting('use_proxy', old_use_proxy)
-        else:
-            result = None
-    else:
-        # طريقة متقدمة
-        result = monitor.try_with_different_session(monitor.target_url)
+    settings = {}
+    for key in settings_keys:
+        settings[key] = db.get_setting(key)
     
-    if result:
-        return {
-            "success": True,
-            "message": f"نجحت طريقة {method}",
-            "method": method,
-            "timestamp": datetime.now().isoformat(),
-            "data": result
-        }
-    else:
-        return {
-            "success": False,
-            "message": f"فشلت طريقة {method}",
-            "method": method,
-            "error": "لم يتمكن من الوصول للمنصة"
-        }
+    return templates.TemplateResponse("settings.html", {
+        "request": request,
+        "settings": settings
+    })
 
-# واجهات API الأخرى (يتم الاحتفاظ بها كما هي مع تعديلات بسيطة)
+@app.get("/reports", response_class=HTMLResponse)
+async def reports_page(request: Request):
+    """صفحة التقارير"""
+    db: DatabaseManager = request.app.state.db
+    
+    stats = db.get_stats()
+    recent_checks = db.get_check_results(limit=10)
+    
+    return templates.TemplateResponse("reports.html", {
+        "request": request,
+        "stats": stats,
+        "recent_checks": recent_checks
+    })
+
+# ==================== واجهات API ====================
 @app.get("/api/health")
-async def health_check(request: Request):
+async def health_check():
     """فحص صحة النظام"""
-    db: DatabaseManager = request.app.state.db
-    monitor: SmartPlatformMonitor = request.app.state.monitor
-    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "3.0.0",
-        "cf_retry_count": monitor.cf_retry_count,
-        "is_monitoring": monitor.is_monitoring,
-        "cookies_count": len(monitor.session.cookies),
-        "proxies_count": len(monitor.proxies)
+        "version": "1.0.0"
+    }
+
+@app.get("/api/stats")
+async def get_system_stats(request: Request):
+    """الحصول على إحصائيات النظام"""
+    db: DatabaseManager = request.app.state.db
+    stats = db.get_stats()
+    return {"success": True, "data": stats}
+
+@app.get("/api/system/logs")
+async def get_system_logs_api(request: Request, limit: int = 10):
+    """الحصول على سجلات النظام"""
+    db: DatabaseManager = request.app.state.db
+    logs = db.get_system_logs(limit=limit)
+    return {"success": True, "data": logs}
+
+@app.get("/api/status")
+async def get_platform_status(request: Request):
+    """الحصول على حالة المنصة"""
+    monitor: SmartPlatformMonitor = request.app.state.monitor
+    status = monitor.get_current_status()
+    
+    return {
+        "success": True,
+        "data": status,
+        "timestamp": datetime.now().isoformat()
     }
 
 @app.post("/api/check")
-async def perform_platform_check(request: Request, check_request: PlatformCheckRequest = None):
+async def perform_platform_check(request: Request):
     """إجراء تحقق يدوي"""
     monitor: SmartPlatformMonitor = request.app.state.monitor
-    db: DatabaseManager = request.app.state.db
     
-    # إذا كانت هناك مشاكل مع Cloudflare، حاول طرق بديلة
-    if monitor.cf_retry_count > 2:
-        db.log("Using alternative methods due to Cloudflare blocks", "INFO", "cloudflare")
-        result = monitor.try_alternative_methods(
-            check_request.url if check_request else None
-        )
-    else:
-        result = monitor.perform_comprehensive_check(
-            check_request.url if check_request else None
-        )
+    result = monitor.perform_comprehensive_check()
     
     if result:
         return {
             "success": True,
             "message": "تم التحقق بنجاح",
-            "cf_bypassed": monitor.cf_retry_count > 0,
             "data": result
         }
     else:
         return {
             "success": False,
-            "message": "فشل التحقق من المنصة",
-            "cf_blocked": True,
-            "retry_count": monitor.cf_retry_count
+            "message": "فشل التحقق من المنصة"
         }
+
+@app.get("/api/reservations")
+async def get_reservations_api(
+    request: Request,
+    status: Optional[str] = None,
+    limit: int = 100,
+    page: int = 1
+):
+    """جلب الحجوزات"""
+    db: DatabaseManager = request.app.state.db
+    
+    offset = (page - 1) * limit
+    reservations = db.get_all_reservations(limit=limit, status=status)
+    
+    # التصحيح البسيط للترقيم
+    if offset > 0:
+        reservations = reservations[offset:offset+limit]
+    else:
+        reservations = reservations[:limit]
+    
+    return {
+        "success": True,
+        "data": reservations,
+        "count": len(reservations),
+        "page": page
+    }
+
+@app.post("/api/reservations")
+async def create_reservation(request: Request, reservation: ReservationCreate):
+    """إنشاء حجز جديد"""
+    db: DatabaseManager = request.app.state.db
+    
+    reservation_id = db.add_reservation(
+        reservation.seller_name,
+        reservation.buyer_name,
+        reservation.plate_number,
+        reservation.priority
+    )
+    
+    return {
+        "success": True,
+        "message": "تم إضافة الحجز",
+        "reservation_id": reservation_id,
+        "data": db.get_reservation(reservation_id)
+    }
+
+@app.post("/api/reservations/upload-csv")
+async def upload_reservations_csv(
+    request: Request,
+    file: UploadFile = File(...),
+    has_header: bool = Form(True)
+):
+    """رفع حجوزات من ملف CSV"""
+    db: DatabaseManager = request.app.state.db
+    
+    content = await file.read()
+    content_str = content.decode('utf-8')
+    
+    # تحليل CSV
+    csv_reader = csv.reader(io.StringIO(content_str))
+    rows = list(csv_reader)
+    
+    if has_header and rows:
+        rows = rows[1:]  # تخطي العنوان
+    
+    reservations = []
+    for i, row in enumerate(rows, 1):
+        if len(row) >= 3:
+            reservations.append({
+                "seller_name": row[0].strip(),
+                "buyer_name": row[1].strip(),
+                "plate_number": row[2].strip(),
+                "priority": int(row[3].strip()) if len(row) > 3 and row[3].strip().isdigit() else 1
+            })
+    
+    if not reservations:
+        raise HTTPException(status_code=400, detail="لم يتم العثور على بيانات صحيحة في الملف")
+    
+    reservation_ids = db.add_batch_reservations(reservations)
+    
+    return {
+        "success": True,
+        "message": f"تم معالجة {len(reservation_ids)} سجل من {len(rows)} سطر",
+        "reservation_ids": reservation_ids[:10],
+        "total_count": len(reservation_ids)
+    }
+
+@app.get("/api/reservations/{reservation_id}")
+async def get_reservation_by_id(request: Request, reservation_id: str):
+    """جلب حجز محدد"""
+    db: DatabaseManager = request.app.state.db
+    
+    reservation = db.get_reservation(reservation_id)
+    
+    if not reservation:
+        raise HTTPException(status_code=404, detail="الحجز غير موجود")
+    
+    return {
+        "success": True,
+        "data": reservation
+    }
+
+@app.delete("/api/reservations/{reservation_id}")
+async def delete_reservation_api(request: Request, reservation_id: str):
+    """حذف حجز"""
+    db: DatabaseManager = request.app.state.db
+    
+    success = db.delete_reservation(reservation_id)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="الحجز غير موجود")
+    
+    return {
+        "success": True,
+        "message": "تم حذف الحجز"
+    }
+
+@app.post("/api/reservations/{reservation_id}/submit")
+async def submit_reservation_api(request: Request, reservation_id: str):
+    """إرسال حجوز محدد"""
+    db: DatabaseManager = request.app.state.db
+    monitor: SmartPlatformMonitor = request.app.state.monitor
+    
+    reservation = db.get_reservation(reservation_id)
+    
+    if not reservation:
+        raise HTTPException(status_code=404, detail="الحجز غير موجود")
+    
+    if reservation["status"] == "submitted":
+        return {
+            "success": False,
+            "message": "تم إرسال هذا الحجز مسبقاً"
+        }
+    
+    # إرسال الحجز
+    result = monitor.submit_reservation(
+        reservation["seller_name"],
+        reservation["buyer_name"],
+        reservation["plate_number"],
+        reservation_id
+    )
+    
+    return {
+        "success": result.get("success", False),
+        "message": result.get("message", result.get("error", "حدث خطأ")),
+        "data": result
+    }
+
+@app.post("/api/reservations/submit-pending")
+async def submit_pending_reservations_api(request: Request, background_tasks: BackgroundTasks):
+    """إرسال الحجوزات المعلقة"""
+    db: DatabaseManager = request.app.state.db
+    monitor: SmartPlatformMonitor = request.app.state.monitor
+    
+    pending = db.get_pending_reservations(limit=10)
+    
+    if not pending:
+        return {
+            "success": False,
+            "message": "لا توجد حجوزات معلقة"
+        }
+    
+    # دالة الخلفية للإرسال
+    async def submit_batch(reservations):
+        for reservation in reservations:
+            try:
+                monitor.submit_reservation(
+                    reservation["seller_name"],
+                    reservation["buyer_name"],
+                    reservation["plate_number"],
+                    reservation["reservation_id"]
+                )
+                # انتظار بين الإرسالات
+                await asyncio.sleep(random.uniform(2, 5))
+            except Exception as e:
+                db.log(f"Failed to submit {reservation['reservation_id']}: {str(e)}", "ERROR", "submission")
+    
+    # إضافة المهمة للخلفية
+    background_tasks.add_task(submit_batch, pending)
+    
+    return {
+        "success": True,
+        "message": f"بدأ إرسال {len(pending)} حجوز في الخلفية",
+        "count": len(pending)
+    }
+
+@app.get("/api/settings")
+async def get_settings_api(request: Request):
+    """جلب إعدادات النظام"""
+    db: DatabaseManager = request.app.state.db
+    
+    settings_keys = [
+        'check_interval', 'max_attempts', 'concurrent_submissions',
+        'target_url', 'auto_retry', 'notification_enabled'
+    ]
+    
+    settings = {}
+    for key in settings_keys:
+        settings[key] = db.get_setting(key)
+    
+    return {
+        "success": True,
+        "data": settings
+    }
+
+@app.post("/api/settings")
+async def update_settings_api(request: Request, settings: Dict[str, Any]):
+    """تحديث إعدادات النظام"""
+    db: DatabaseManager = request.app.state.db
+    monitor: SmartPlatformMonitor = request.app.state.monitor
+    
+    updated = []
+    for key, value in settings.items():
+        if key in ['check_interval', 'max_attempts', 'concurrent_submissions']:
+            if not str(value).isdigit():
+                raise HTTPException(status_code=400, detail=f"قيمة {key} يجب أن تكون رقمية")
+        
+        db.update_setting(key, str(value))
+        updated.append(key)
+        
+        # تطبيق التغييرات الفورية
+        if key == 'check_interval':
+            monitor.stop_monitoring()
+            monitor.start_monitoring(int(value))
+        elif key == 'target_url':
+            monitor.target_url = value
+    
+    return {
+        "success": True,
+        "message": f"تم تحديث {len(updated)} إعداد",
+        "updated": updated
+    }
+
+@app.post("/api/cookies/upload")
+async def upload_cookies_api(request: Request, file: UploadFile = File(...)):
+    """رفع ملف الكوكيز"""
+    monitor: SmartPlatformMonitor = request.app.state.monitor
+    db: DatabaseManager = request.app.state.db
+    
+    content = await file.read()
+    
+    try:
+        # حفظ الملف مؤقتاً
+        temp_path = "temp_cookies.json"
+        with open(temp_path, "wb") as f:
+            f.write(content)
+        
+        # تحميل الكوكيز
+        success = monitor.load_cookies(temp_path)
+        
+        # حذف الملف المؤقت
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        if success:
+            # حفظ نسخة دائمة
+            with open("cookies.json", "wb") as f:
+                f.write(content)
+            
+            return {
+                "success": True,
+                "message": "تم تحميل الكوكيز بنجاح"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="فشل تحميل الكوكيز")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"خطأ في معالجة الملف: {str(e)}")
+
+@app.get("/api/cookies/status")
+async def get_cookies_status_api(request: Request):
+    """الحصول على حالة الكوكيز"""
+    monitor: SmartPlatformMonitor = request.app.state.monitor
+    
+    return {
+        "success": True,
+        "has_cookies": len(monitor.session.cookies) > 0,
+        "count": len(monitor.session.cookies),
+        "cookies": [{"name": c.name, "value": c.value[:20] + "..." if len(c.value) > 20 else c.value} 
+                   for c in monitor.session.cookies]
+    }
+
+@app.get("/api/reports/checks")
+async def get_checks_report_api(
+    request: Request,
+    check_type: Optional[str] = None,
+    limit: int = 100,
+    format: str = "json"
+):
+    """تقرير نتائج التحقق"""
+    db: DatabaseManager = request.app.state.db
+    
+    checks = db.get_check_results(limit=limit, check_type=check_type)
+    
+    if format == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        writer.writerow(["Timestamp", "Check Type", "Check Name", "Status", "Details", "Response Code"])
+        for check in checks:
+            writer.writerow([
+                check["timestamp"],
+                check["check_type"],
+                check["check_name"],
+                check["status"],
+                check["details"],
+                check["response_code"] or ""
+            ])
+        
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=checks_report.csv"}
+        )
+    
+    return {
+        "success": True,
+        "count": len(checks),
+        "data": checks
+    }
+
+@app.get("/api/reports/reservations")
+async def get_reservations_report_api(
+    request: Request,
+    status: Optional[str] = None,
+    limit: int = 100,
+    format: str = "json"
+):
+    """تقرير الحجوزات"""
+    db: DatabaseManager = request.app.state.db
+    
+    reservations = db.get_all_reservations(limit=limit, status=status)
+    
+    if format == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        writer.writerow(["Reservation ID", "Seller", "Buyer", "Plate", "Status", "Created", "Submitted", "Attempts", "Result"])
+        for res in reservations:
+            writer.writerow([
+                res["reservation_id"],
+                res["seller_name"],
+                res["buyer_name"],
+                res["plate_number"],
+                res["status"],
+                res["created_at"],
+                res["submitted_at"] or "",
+                res["attempts"],
+                res["result"] or ""
+            ])
+        
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=reservations_report.csv"}
+        )
+    
+    return {
+        "success": True,
+        "count": len(reservations),
+        "data": reservations
+    }
+
+@app.post("/api/maintenance/cleanup")
+async def cleanup_old_data_api(request: Request, days: int = 7):
+    """تنظيف البيانات القديمة"""
+    db: DatabaseManager = request.app.state.db
+    
+    if days < 1:
+        raise HTTPException(status_code=400, detail="عدد الأيام يجب أن يكون 1 أو أكثر")
+    
+    result = db.clear_old_data(days)
+    
+    return {
+        "success": True,
+        "message": f"تم تنظيف البيانات الأقدم من {days} أيام",
+        "data": result
+    }
+
+@app.post("/api/maintenance/reset")
+async def reset_system_api(request: Request, confirm: bool = False):
+    """إعادة تعيين النظام (يجب التأكيد)"""
+    if not confirm:
+        raise HTTPException(status_code=400, detail="يجب تأكيد إعادة التعيين")
+    
+    # إعادة تعيين الإعدادات للافتراضية
+    db: DatabaseManager = request.app.state.db
+    
+    default_settings = [
+        ('check_interval', '60'),
+        ('max_attempts', '3'),
+        ('concurrent_submissions', '1'),
+        ('target_url', 'https://import-dep.mega-sy.com/registration'),
+        ('auto_retry', 'true'),
+        ('notification_enabled', 'true')
+    ]
+    
+    for key, value in default_settings:
+        db.update_setting(key, value)
+    
+    return {
+        "success": True,
+        "message": "تم إعادة تعيين النظام"
+    }
 
 # ==================== تشغيل التطبيق ====================
 if __name__ == "__main__":
